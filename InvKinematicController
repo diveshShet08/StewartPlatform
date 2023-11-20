@@ -1,0 +1,417 @@
+ /*******************************************************************************
+* Copyright 2016 ROBOTIS CO., LTD.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*******************************************************************************/
+
+// 1.  comunication with openCM 9.04.................
+
+#include <Dynamixel2Arduino.h>
+#define DXL_SERIAL   Serial3         //OpenCM9.04 EXP Board's DXL port Serial. (Serial1 for the DXL port on the OpenCM 9.04 board)
+#define DEBUG_SERIAL Serial
+const uint8_t DXL_DIR_PIN = 22;      //OpenCM9.04 EXP Board's DIR PIN. (28 for the DXL port on the OpenCM 9.04 board)
+
+// 2.  Variables.....
+   // 2.1  id assignments.......
+
+int DXL_ID[]={1,2,3,4,5,6};
+int delayTime = (2000);
+int V_max=8;
+int warning_pin_1 = 18; // red led
+int warning_pin_2 = 19; // green led
+int warning_pin_3 = 20; // blue led
+int button_pin_1 = 16;
+int n = 6;
+
+  // 2.2 protocal..............
+
+const float DXL_PROTOCOL_VERSION = 2.0;
+
+   // 2.3 actuator variables....
+
+Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
+
+   //This namespace is required to use Control table item names
+using namespace ControlTableItem;
+
+void setup() {
+     
+// 1 Setting pin mode
+
+ pinMode(warning_pin_1,OUTPUT); // 18 to 20 led in epansion board, 
+ pinMode(warning_pin_2,OUTPUT); 
+ pinMode(warning_pin_3,OUTPUT); 
+
+ pinMode(button_pin_1,OUTPUT); // 16 to 17 button pin in epansion board, 
+
+// 2.a Dynamixel initialisation
+ 
+      // Use UART port of DYNAMIXEL Shield to debug.
+ //  Serial.begin(115200);
+ DEBUG_SERIAL.begin(115200);
+  Serial.print("DYNAMIXEL SERIAL IS: ");
+    Serial.println(DXL_SERIAL);
+  Serial.print("DYNAMIXEL DIR PIN IS: ");
+    Serial.println(DXL_DIR_PIN);
+  Serial.print("DYNAMIXEL PROTOCOL_VERSION IS: ");
+    Serial.println(DXL_PROTOCOL_VERSION);
+    //while(!DEBUG_SERIAL);
+
+// 2.b Setting baudrate, protocol version, get dynamixel version and check connection.
+
+    // Set Port baudrate to 57600bps. This has to match with DYNAMIXEL baudrate.
+  dxl.begin(57600);
+    // Set Port Protocol Version. This has to match with DYNAMIXEL protocol version.
+  dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
+    // Get DYNAMIXEL information
+  Serial.println("Conection Checking ('1' for conected and '0' for not conected) for the actuators 1 to 6: ");
+  
+// 3   Getting dynamixel ID, Model number and max velocity in position control mode.
+
+  for(int i=0; i<6; i++){
+    Serial.print("Actuator ");
+      Serial.print(i);
+        Serial.print(" is: ");
+          Serial.println(dxl.ping(DXL_ID[i]));
+  }
+  
+  Serial.println("The model numbers for the actuators 1 to 6: ");
+  Serial.println("                                                      1020 for [DYNAMIXEL XM540-W270-R] ");
+  Serial.println("                                                      1030 for [DYNAMIXEL XM540-W150-R] ");
+   
+  for(int i=1; i<=6; i++){
+    Serial.print("Model numbers for the Actuator ");
+      Serial.print(i);
+        Serial.print(" is: ");
+          Serial.println(dxl.getModelNumber(i));
+  }
+  Serial.println("");
+  Serial.println("");
+  Serial.println("==========================================================================================");
+    Serial.print("The maximum velocity in Position Control Mode: =  ");
+      Serial.print(V_max);
+        Serial.println(" deg/sec");
+
+// 4  Setting operating mode(as position based) and Max speed
+
+  for(int i=0; i<n; i++){
+  // Turn off torque when configuring items in EEPROM area
+    dxl.torqueOff(DXL_ID[i]);
+    dxl.setOperatingMode(DXL_ID[i], OP_POSITION);     //This function changes operating mode of DYNAMIXEL.
+    dxl.torqueOn(DXL_ID[i]);
+ 
+    // Limit the maximum velocity in Position Control Mode. Use 0 for Max speed
+    dxl.writeControlTableItem(PROFILE_VELOCITY, DXL_ID[i], V_max);
+  }
+}
+
+void loop(){ 
+
+// Inverse kinematics implementation
+float pie = 3.14159;
+float trans_0[]    = {0.0,0.0, 0.0};     // X, Y, Z
+float trans_1[]    = {0.0,0.0,2.};      // X, Y, Z
+float trans_2[]    = {0.0, 2.,0.0};     // X, Y, Z
+float trans_3[]    = {0.0,-2.,0.0};     // X, Y, Z
+float trans_4[]    = { 2.,0.0,0.0};     // X, Y, Z
+float trans_5[]    = {-2.,0.0,0.0};     // X, Y, Z
+float trans_6[]    = {0.0,0.0,1.};      // X, Y, Z
+float trans_7[]    = {0.0,0.0,1.0};      // X, Y, Z
+float rotation[]   = {0.0,0.0,0.0};      // phie, theta, psi
+float rotation_0[] = {0.0,0.0,0.0};      // phie, theta, psi
+float rotation_1[] = {0.1,0.0,0.0};     // phie, theta, psi
+float rotation_2[] = {0.0,0.1,0.0};     // phie, theta, psi
+float rotation_3[] = {0.0,0.0,0.15};      // phie, theta, psi
+delay(1500);
+
+delay(3000);
+inv_kin(trans_0,rotation);
+delay(8000);
+Serial.println("TRANSLATION along X - axis.........................................................................................................");
+delay(600);
+inv_kin(trans_4,rotation);
+inv_kin(trans_5,rotation);
+inv_kin(trans_0,rotation);
+delay(600);
+Serial.println("TRANSLATION along Y - axis.........................................................................................................");
+delay(600);
+inv_kin(trans_2,rotation);
+inv_kin(trans_3,rotation);
+inv_kin(trans_0,rotation);
+delay(600);
+Serial.println("TRANSLATION along Z - axis.........................................................................................................");
+delay(600);
+inv_kin(trans_7,rotation_0);
+delay(600);
+//Serial.println("ROTATION about X axis.........................................................................................................");
+//delay(6000);
+//inv_kin(trans_0,rotation);
+//inv_kin(trans_0,rotation_1);
+//inv_kin(trans_0,rotation);
+//delay(600);
+//Serial.println("ROTATION about Y axis.........................................................................................................");
+//delay(600);
+//inv_kin(trans_0,rotation_2);
+//inv_kin(trans_0,rotation);
+//delay(600);
+//Serial.println("ROTATION about Z axis.........................................................................................................");
+//delay(600);
+//inv_kin(trans_0,rotation_3);
+//inv_kin(trans_0,rotation);
+//delay(2000);
+//delay(600);
+//Serial.println("ROTATION about Z axis.........................................................................................................");
+//delay(600);
+//inv_kin(trans_0,rotation);
+//delay(2500);
+//inv_kin(trans_0,rotation_3);
+//delay(2000);
+//inv_kin(trans_0,rotation);
+//delay(2500);
+}
+
+void mov(int V_max, float goal_pos[]){
+  // provides the neccesary amount of actuation to the system.
+  
+  // 1 Checks wheather a given goal position is attainable.
+  int flag = 0;
+  for(int i =0; i<n; i++){
+    if((i+1)%2!=0){
+      if(goal_pos[i]>=60 and goal_pos[i]<=180){
+        flag++; //flag++ --> flag=flag+1
+        }
+      else{  
+      Serial.print(goal_pos[i]); 
+      Serial.print(" degrees rotation of the actuator "); 
+      Serial.print(i+1); 
+      Serial.println(" is out of range [60,180] ");
+      }
+    }
+    else if((i+1)%2==0){
+      if(goal_pos[i]>=180 and goal_pos[i]<=300){
+         flag++;
+      }
+      else{
+      Serial.print(goal_pos[i]);
+      Serial.print(" degrees rotation of the actuator "); 
+      Serial.print(i+1); 
+      Serial.println(" is out of range [180,300]");
+      }
+    }
+  }
+  
+  //Serial.print("flag count: ");
+    //Serial.println(flag);
+
+  // 2 If given goal position is attainable, actuate the system.
+  if(flag==6){                    
+    Serial.println("Lets Go!");
+    for(int i=0; i<n; i++){
+      dxl.setGoalPosition(DXL_ID[i], goal_pos[i], UNIT_DEGREE);
+    }
+    digitalWrite(warning_pin_1,HIGH);
+    digitalWrite(warning_pin_3,HIGH);
+    digitalWrite(warning_pin_2,LOW);
+    delay(50);
+    //Serial.println("On the way..");
+  }
+  else{
+    Serial.println("Goal position not attainable.");
+    digitalWrite(warning_pin_2,HIGH);
+    digitalWrite(warning_pin_3,HIGH);
+    for(int j=0; j<20; j++){
+    digitalWrite(warning_pin_1,LOW);
+    delay(50);
+    digitalWrite(warning_pin_1,HIGH);
+    delay(50);
+    }
+  }
+}
+
+void inv_kin(float trans[],float rotation[]){     //,double *goal_pos[0]
+// update values given below in 1.1
+
+trans [2] = -1*trans[2];
+rotation [0] = -1*rotation[0];
+rotation [1] = -1*rotation[1];
+
+// 1.1 Defining platform parameters
+float r_B=25.90;           // Radius of base
+float r_P=8.554;           // Radius of top platform                // update!!
+float gamma_B = 0.5586;    // 0.2269rad is 13 degrees, which is standard gamma_B for stewart platforms
+float gamma_P = 0.3311;    // 0.82rad                               // update!!
+float ldl = 29.0;          // Length of connecting rod
+float lhl =  4.50;         // Length of crank arm
+float pie = 3.14159;
+float home_pos[]= {0, 0, 26.20};                                     // update!!
+
+
+// 1.2 Define the Geometry of the platform
+float psi_B[]={-gamma_B,gamma_B,(2*pie/3 - gamma_B),(2*pie/3 + gamma_B),(2*pie/3 + 2*pie/3 - gamma_B), (2*pie/3 + 2*pie/3 + gamma_B)};
+  // Direction of the points where the rod is attached to the platform.
+float psi_P[]={-gamma_P,gamma_P,(2*pie/3 - gamma_P),(2*pie/3 + gamma_P),(2*pie/3 + 2*pie/3 - gamma_P), (2*pie/3 + 2*pie/3 + gamma_P)};
+  // Coordinate of the points where servo arms are attached to the corresponding servo axis.
+float B_coefficients[6][3]={{ cos(psi_B[0]), sin(psi_B[0]), 0},{ cos(psi_B[1]), sin(psi_B[1]), 0},{ cos(psi_B[2]), sin(psi_B[2]), 0},{ cos(psi_B[3]), sin(psi_B[3]), 0},{ cos(psi_B[4]), sin(psi_B[4]), 0},{ cos(psi_B[5]), sin(psi_B[5]), 0}};
+float B[3][6];
+for(int i = 0;i<6;++i){
+  for (int j = 0;j<3;++j){
+    B[j][i] = r_B * B_coefficients[i][j];
+  }
+}
+  // Coordinates of the points where the rods are attached to the platform.
+float P_coefficients[6][3]={{ cos(psi_P[0]), sin(psi_P[0]), 0},{ cos(psi_P[1]), sin(psi_P[1]), 0},{ cos(psi_P[2]), sin(psi_P[2]), 0},{ cos(psi_P[3]), sin(psi_P[3]), 0},{ cos(psi_P[4]), sin(psi_P[4]), 0},{ cos(psi_P[5]), sin(psi_P[5]), 0} };
+float P[3][6];
+for(int i = 0;i<6;++i){
+  for (int j = 0;j<3;++j){
+    P[j][i] = r_P * P_coefficients[i][j];
+  }
+}
+
+// 1.3 Initialising variables
+float l[3][6];           // leg vector, pointing anchor points to top platform from base of motor(tip of the motor shaft)//= np.zeros((3,6))
+float lll[6];            // mod(l)    //= np.zeros((6))
+for(int i = 0;i<6;++i){
+  l[0][i]=0.0;
+  l[1][i]=0.0;
+  l[2][i]=0.0;
+  lll[i] =0.0;
+}
+
+// 1.4 Print given input translational and rotational
+Serial.println();
+Serial.println();
+Serial.print("Travel to (X Y Z):");
+Serial.print(trans[0]);
+Serial.print("\t");
+Serial.print(trans[1]);
+Serial.print("\t");
+Serial.print(-1*trans[2]);
+Serial.println();
+Serial.print("Rotate about (X Y Z):");
+Serial.print(-1*rotation[0]);
+Serial.print("\t");
+Serial.print(-1*rotation[1]);
+Serial.print("\t");
+Serial.print(rotation[2]);
+Serial.println();
+
+// 2.1 Calculating rotation matrice rot[3][3]
+
+float rot[3][3];
+rot[0][0] =  cos(rotation[2])*cos(rotation[1]);
+rot[0][1] = -sin(rotation[2])*cos(rotation[0])+cos(rotation[2])*sin(rotation[1])*sin(rotation[0]);
+rot[0][2] =  sin(rotation[2])*sin(rotation[0])+cos(rotation[2])*sin(rotation[1])*cos(rotation[0]);
+
+rot[1][0] =  sin(rotation[2])*cos(rotation[1]);
+rot[1][1] =  cos(rotation[2])*cos(rotation[0])+sin(rotation[2])*sin(rotation[1])*sin(rotation[0]);
+rot[1][2] = -cos(rotation[2])*sin(rotation[0])+sin(rotation[2])*sin(rotation[1])*cos(rotation[0]);
+
+rot[2][0] = -sin(rotation[1]);
+rot[2][1] =  cos(rotation[1])*sin(rotation[0]);
+rot[2][2] =  cos(rotation[1])*cos(rotation[0]);
+
+// 2.2 Get leg length for each leg
+
+for(int i = 0;i<6;++i){
+  l[0][i] = home_pos[0] + trans[0] + rot[0][0]*P[0][i]+rot[0][1]*P[1][i]+rot[0][2]*P[2][i]-B[0][i];
+  l[1][i] = home_pos[1] + trans[1] + rot[1][0]*P[0][i]+rot[1][1]*P[1][i]+rot[1][2]*P[2][i]-B[1][i];
+  l[2][i] = home_pos[2] + trans[2] + rot[2][0]*P[0][i]+rot[2][1]*P[1][i]+rot[2][2]*P[2][i]-B[2][i];
+}
+
+// 2.3 Calculating absolute value of leg length
+
+for(int i = 0;i<6;++i){
+  lll[i] = sqrt((l[0][i]*l[0][i])+(l[1][i]*l[1][i])+(l[2][i]*l[2][i]));   //leg length for each leg
+  //Serial.println(lll[i]);
+}
+
+
+// 3.1 defining parameters specific to RSS type stewart platform //ldl = mod(d);lhl = mod(h)
+
+  // 3.1.a Beta (Angle)     // Angle between the plane in which the servo arm moves and the xz-plane of the base CS.
+
+float beta[6] = {2*pie/3 + pie/2 + pie, 4*pie/3 + pie/2, 4*pie/3 + pie/2 + pie, pie/2, pie/2 + pie, 2*pie/3 + pie/2};                           //{pie/2 + pie,pie/2,2*pie/3 + pie/2 + pie,2*pie/3 + pie/2,4*pie/3 + pie/2 + pie,4*pie/3 + pie/2};
+  // 3.1.b Allocate space for float variables
+float angles[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+
+// 3.2 Calculate auxiliary quatities g, fk and e
+
+float g[6];
+float e[6];
+float fk[6];
+for(int i =0;i<6;++i){
+  g[i] = lll[i]*lll[i] - ( ldl*ldl - lhl*lhl);
+  e[i] = 2*lhl*l[2][i];
+  fk[i] = 2*lhl*(cos(beta[i])*l[0][i]+sin(beta[i])*l[1][i]);
+  //Serial.println(fk[i]);
+}
+
+// 3.3 Calculate servo angles for each leg
+float aa,bb;
+
+Serial.println();
+for(int k =0;k<6;++k){    
+    // The wanted position could be achieved if the solution of this equation is real for all i
+    aa = asin(g[k]/sqrt(e[k]*e[k] + fk[k]*fk[k]));
+    bb = atan(fk[k]/e[k]);
+    //Serial.println(180*aa/3.14159);
+    //Serial.println(180*bb/3.14159);
+    
+    angles[k] = 180*(aa - bb)/pie;  
+                //Note: in the above line we should have used atan2(), but the function is not defined in arduino ide.
+}
+
+// 3.4 Printing out desired value of angles (in rad).
+
+//Serial.print(" Desired angle for servo motor 1: \t");
+  //Serial.println(angles[0]);
+//Serial.print(" Desired angle for servo motor 2: \t");
+  //Serial.println(angles[1]);
+//Serial.print(" Desired angle for servo motor 3: \t");
+  //Serial.println(angles[2]);
+//Serial.print(" Desired angle for servo motor 4: \t");
+  //Serial.println(angles[3]);
+//Serial.print(" Desired angle for servo motor 5: \t");
+  //Serial.println(angles[4]);
+//Serial.print(" Desired angle for servo motor 6: \t");
+  //Serial.println(angles[5]);
+
+// 4   Returning the angles (in degree) to main function
+float angles_mov[6];
+angles_mov[0]=180-angles[0];
+angles_mov[1]=180+angles[1];
+angles_mov[2]=180-angles[2];
+angles_mov[3]=180+angles[3];
+angles_mov[4]=180-angles[4];
+angles_mov[5]=180+angles[5];
+mov(V_max, angles_mov);
+delay(delayTime);
+}
+
+
+float itan(float fk,float e){
+  float b = atan(fk/e);
+  if (fk<0){
+    if(e<0){
+      b = b + 3.14159;
+    }else{
+      b = 3.14159 - b;
+    }
+  }else{
+    if(e<0){
+      b = -1*b; 
+    }   
+  }
+  //Serial.println(180*b/3.14159); 
+  return b;
+}
